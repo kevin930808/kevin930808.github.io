@@ -1,202 +1,85 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Cookie Injector</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: 20px auto;
-      padding: 20px;
       text-align: center;
+      padding: 20px;
+      margin: 0;
+      background-color: #f0f0f0;
     }
-    .cookie-box {
-      background: #f0f0f0;
-      padding: 10px;
-      margin: 10px 0;
-      word-break: break-all;
+    p {
+      font-size: 18px;
+      color: #333;
     }
     button {
-      padding: 10px 20px;
-      background: #007bff;
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #4CAF50;
       color: white;
       border: none;
-      cursor: pointer;
-      margin: 5px;
+      border-radius: 5px;
+      margin-top: 10px;
     }
     button:hover {
-      background: #0056b3;
+      background-color: #45a049;
     }
-    #instructions {
-      margin-top: 20px;
-      text-align: left;
+    .error {
+      color: red;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h2>Cookie Injector</h2>
-  <p id="status">正在處理 cookies...</p>
-  <div id="cookie-list"></div>
-  <button id="copy-button" style="display: none;">複製 Cookies 指令</button>
-  <button id="redirect-button" style="display: none;">立即跳轉到目標網址</button>
-  <div id="instructions"></div>
-
+  <p>請點擊以下按鈕以開啟結帳頁面<br>（若無反應，請允許此網站的彈出視窗並檢查瀏覽器設定）</p>
+  <button onclick="openTargetWindow()">開啟結帳頁面</button>
+  <div id="error-message"></div>
   <script>
     // 解析 URL 參數
     const urlParams = new URLSearchParams(window.location.search);
-    const target = decodeURIComponent(urlParams.get('target') || '');
-    const payloadJson = decodeURIComponent(urlParams.get('payload') || '');
+    const targetUrl = urlParams.get('target');
+    const cookies = urlParams.get('cookies');
 
-    const statusElement = document.getElementById('status');
-    const cookieListElement = document.getElementById('cookie-list');
-    const copyButton = document.getElementById('copy-button');
-    const redirectButton = document.getElementById('redirect-button');
-    const instructionsElement = document.getElementById('instructions');
+    // 檢查是否有 target URL
+    if (!targetUrl) {
+      console.error('No target URL provided');
+      document.getElementById('error-message').innerHTML = '<p class="error">錯誤：無效的目標 URL，請檢查連結</p>';
+      return;
+    }
 
-    if (!target || !payloadJson) {
-      statusElement.textContent = '錯誤：缺少 target 或 payload 參數';
-    } else {
+    // 處理 cookies 並觸發 Chrome 插件事件
+    if (cookies) {
       try {
-        const payload = JSON.parse(payloadJson);
-        const cookies = payload.cookies || {};
-        const attributes = payload.attributes || {};
-        const path = attributes.path || '/';
-        const secure = attributes.secure !== undefined ? attributes.secure : target.startsWith('https://');
-        const httpOnly = attributes.httpOnly || false;
+        const cookiesObj = JSON.parse(decodeURIComponent(cookies));
+        // 發送自訂事件給 Chrome 插件
+        const event = new CustomEvent('cookieData', { detail: cookiesObj });
+        window.dispatchEvent(event);
+        console.log('Cookies dispatched to extension:', cookiesObj);
+      } catch (e) {
+        console.error('無法解析 cookies:', e);
+        document.getElementById('error-message').innerHTML = '<p class="error">錯誤：無法解析 cookies，請檢查連結格式</p>';
+      }
+    }
 
-        // 顯示 cookies 內容
-        statusElement.textContent = `目標網址：${target}`;
-        cookieListElement.innerHTML = '<h3>Cookies 內容：</h3>';
-        let cookieCommands = [];
-
-        Object.keys(cookies).forEach(key => {
-          const value = cookies[key];
-          // 生成 cookie 設定指令
-          let cookieString = `${key}=${value}; path=${path}`;
-          if (secure) cookieString += '; secure';
-          // 注意：httpOnly 無法透過 document.cookie 設定，僅顯示提示
-          if (httpOnly) cookieString += ' (httpOnly，需後端設定)';
-          
-          cookieListElement.innerHTML += `<div class="cookie-box">${cookieString}</div>`;
-          // 僅為非 httpOnly 的 cookies 生成指令
-          if (!httpOnly) {
-            cookieCommands.push(`document.cookie = "${cookieString}";`);
-          }
-        });
-
-        // 顯示手動設定指引
-        instructionsElement.innerHTML = `
-          <h3>如何手動設定 Cookies</h3>
-          <p>由於瀏覽器安全限制，無法直接為 ${new URL(target).hostname} 設定 cookies。請按照以下步驟操作：</p>
-          <ol>
-            <li>打開目標網址：<a href="${target}" target="_blank">${target}</a></li>
-            <li>按 F12 開啟瀏覽器開發者工具（DevTools），切換到「控制台」(Console) 標籤</li>
-            <li>複製以下指令並貼上執行（點擊「複製 Cookies 指令」按鈕）：</li>
-          </ol>
-          <pre>${cookieCommands.join('\n')}</pre>
-          <p><strong>注意</strong>：如果 cookies 需要 httpOnly，需透過後端或瀏覽器擴展設定，無法直接用 JavaScript。</p>
-        `;
-
-        // 啟用按鈕
-        copyButton.style.display = 'inline-block';
-        redirectButton.style.display = 'inline-block';
-
-        // 複製 cookies 指令
-        copyButton.onclick = () => {
-          const text = cookieCommands.join('\n');
-          navigator.clipboard.writeText(text).then(() => {
-            alert('已複製 Cookies 指令！請在目標網址的 DevTools 控制台貼上執行。');
-          }).catch(err => {
-            alert('複製失敗：' + err);
-          });
-        };
-
-        // 立即跳轉
-        redirectButton.onclick = () => {
-          window.location.href = target;
-        };
-
-        // 嘗試使用 iframe（通常無效，因 X-Frame-Options）
-        const tryIframe = () => {
-          const iframe = document.createElement('iframe');
-          iframe.src = target;
-          iframe.style.display = 'none';
-          document.body.appendChild(iframe);
-          iframe.onload = () => {
-            try {
-              // 嘗試在 iframe 中設定 cookies（通常無效）
-              Object.keys(cookies).forEach(key => {
-                const value = cookies[key];
-                let cookieString = `${key}=${value}; path=${path}`;
-                if (secure) cookieString += '; secure';
-                iframe.contentWindow.document.cookie = cookieString;
-              });
-            } catch (e) {
-              console.error('Iframe cookie setting failed:', e);
-            }
-            // 無論如何，3 秒後跳轉
-            setTimeout(() => {
-              window.location.href = target;
-            }, 3000);
-          };
-          iframe.onerror = () => {
-            console.error('Iframe loading failed (possibly due to X-Frame-Options)');
-            setTimeout(() => {
-              window.location.href = target;
-            }, 3000);
-          };
-        };
-
-        // 自動嘗試 iframe（僅作為實驗，預期失敗）
-        tryIframe();
-
-      } catch (error) {
-        statusElement.textContent = `錯誤：無法解析 payload - ${error.message}`;
-        instructionsElement.innerHTML = `<p>請檢查特殊網址的 payload 格式，然後重試。</p>`;
-        redirectButton.style.display = 'inline-block';
-        redirectButton.onclick = () => {
-          window.location.href = target;
-        };
+    // 開啟獨立視窗的函數
+    function openTargetWindow() {
+      const newWindow = window.open(
+        decodeURIComponent(targetUrl),
+        '_blank',
+        'width=800,height=600,toolbar=no,menubar=no,location=no,status=no'
+      );
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        alert('彈出視窗被阻止！請在瀏覽器設定中允許來自 https://kevin930808.github.io 的彈出視窗，然後再次點擊按鈕。');
+      } else {
+        // 可選擇關閉當前頁面（視瀏覽器限制）
+        // window.close();
       }
     }
   </script>
