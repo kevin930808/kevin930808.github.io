@@ -6,8 +6,34 @@
 <body>
   <p>正在處理 cookies 並跳轉...</p>
   <script>
-    // 空腳本，僅作為插件的監聽目標
-    // 實際邏輯由 Chrome 插件處理
+    // 解析 URL 參數
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetUrl = urlParams.get('target');
+    const cookies = urlParams.get('cookies');
+
+    // 檢查是否有 target URL
+    if (targetUrl) {
+      // 在新視窗中開啟目標 URL
+      window.open(decodeURIComponent(targetUrl), '_blank');
+
+      // 如果需要處理 cookies（目前僅解析，未應用）
+      if (cookies) {
+        try {
+          const cookiesObj = JSON.parse(decodeURIComponent(cookies));
+          console.log('Cookies:', cookiesObj);
+          // 如果 Chrome 插件需要處理 cookies，這裡可以保留給插件使用
+          // 例如：將 cookiesObj 傳遞給插件的某個事件
+        } catch (e) {
+          console.error('無法解析 cookies:', e);
+        }
+      }
+
+      // 可選擇關閉當前視窗
+      // window.close(); // 視需求決定是否保留
+    } else {
+      console.error('No target URL provided');
+      document.body.innerHTML = '<p>錯誤：無效的目標 URL</p>';
+    }
   </script>
 </body>
 </html>
