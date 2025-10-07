@@ -2,9 +2,29 @@
 <html>
 <head>
   <title>Cookie Injector</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
 </head>
 <body>
-  <p>正在處理 cookies 並跳轉...</p>
+  <p>請點擊以下按鈕以開啟結帳頁面（若無反應，請允許此網站的彈出視窗）：</p>
+  <button onclick="openTargetWindow()">開啟結帳頁面</button>
   <script>
     // 解析 URL 參數
     const urlParams = new URLSearchParams(window.location.search);
@@ -12,31 +32,34 @@
     const cookies = urlParams.get('cookies');
 
     // 檢查是否有 target URL
-    if (targetUrl) {
-      // 在獨立視窗中開啟目標 URL，指定視窗屬性
-      window.open(
+    if (!targetUrl) {
+      console.error('No target URL provided');
+      document.body.innerHTML = '<p>錯誤：無效的目標 URL</p>';
+      return;
+    }
+
+    // 處理 cookies 並觸發 Chrome 插件事件
+    if (cookies) {
+      try {
+        const cookiesObj = JSON.parse(decodeURIComponent(cookies));
+        // 發送自訂事件給 Chrome 插件
+        const event = new CustomEvent('cookieData', { detail: cookiesObj });
+        window.dispatchEvent(event);
+      } catch (e) {
+        console.error('無法解析 cookies:', e);
+      }
+    }
+
+    // 開啟獨立視窗的函數
+    function openTargetWindow() {
+      const newWindow = window.open(
         decodeURIComponent(targetUrl),
         '_blank',
         'width=800,height=600,toolbar=no,menubar=no,location=no,status=no'
       );
-
-      // 如果需要處理 cookies
-      if (cookies) {
-        try {
-          const cookiesObj = JSON.parse(decodeURIComponent(cookies));
-          // 發送自訂事件給 Chrome 插件
-          const event = new CustomEvent('cookieData', { detail: cookiesObj });
-          window.dispatchEvent(event);
-        } catch (e) {
-          console.error('無法解析 cookies:', e);
-        }
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        alert('彈出視窗被阻止！請在瀏覽器設定中允許來自此網站的彈出視窗，然後再次點擊按鈕。');
       }
-
-      // 可選擇關閉當前視窗（視瀏覽器限制）
-      // window.close();
-    } else {
-      console.error('No target URL provided');
-      document.body.innerHTML = '<p>錯誤：無效的目標 URL</p>';
     }
   </script>
 </body>
