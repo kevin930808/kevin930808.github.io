@@ -13,23 +13,27 @@
 
     // 檢查是否有 target URL
     if (targetUrl) {
-      // 在新視窗中開啟目標 URL
-      window.open(decodeURIComponent(targetUrl), '_blank');
+      // 在獨立視窗中開啟目標 URL，指定視窗屬性
+      window.open(
+        decodeURIComponent(targetUrl),
+        '_blank',
+        'width=800,height=600,toolbar=no,menubar=no,location=no,status=no'
+      );
 
-      // 如果需要處理 cookies（目前僅解析，未應用）
+      // 如果需要處理 cookies
       if (cookies) {
         try {
           const cookiesObj = JSON.parse(decodeURIComponent(cookies));
-          console.log('Cookies:', cookiesObj);
-          // 如果 Chrome 插件需要處理 cookies，這裡可以保留給插件使用
-          // 例如：將 cookiesObj 傳遞給插件的某個事件
+          // 發送自訂事件給 Chrome 插件
+          const event = new CustomEvent('cookieData', { detail: cookiesObj });
+          window.dispatchEvent(event);
         } catch (e) {
           console.error('無法解析 cookies:', e);
         }
       }
 
-      // 可選擇關閉當前視窗
-      // window.close(); // 視需求決定是否保留
+      // 可選擇關閉當前視窗（視瀏覽器限制）
+      // window.close();
     } else {
       console.error('No target URL provided');
       document.body.innerHTML = '<p>錯誤：無效的目標 URL</p>';
